@@ -1,16 +1,41 @@
 {
-  "name": "domainhr",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
-    "cf-typegen": "wrangler types"
-  },
-  "devDependencies": {
-    "@types/node": "^26.4.1",
-    "typescript": "^5.5.2",
-    "wrangler": "^4.129.0"
-  }
+	"name": "domainhr",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"cf-typegen": "wrangler types",
+		"check": "tsc --noEmit && vite build",
+		"deploy": "vite build && wrangler deploy",
+		"dev": "vite dev",
+		"preview": "vite preview",
+		"start": "vite dev",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"@cloudflare/vite-plugin": "1.54.4",
+		"@types/node": "^26.4.1",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"@vitejs/plugin-react": "6.1.1",
+		"prettier": "3.6.2",
+		"typescript": "^5.5.2",
+		"vite": "8.2.2",
+		"vitest": "5.0.0",
+		"wrangler": "^4.129.0"
+	},
+	"dependencies": {
+		"@cloudflare/voice": "0.4.0",
+		"@mistralai/mistralai": "2.6.4",
+		"@opentelemetry/api": "1.9.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.220.0",
+		"@opentelemetry/resources": "2.9.0",
+		"@opentelemetry/sdk-trace-base": "2.9.0",
+		"agents": "0.22.0",
+		"ai": "7.0.93",
+		"react": "19.2.8",
+		"react-dom": "19.2.8",
+		"zod": "4.4.3"
+	}
 }
