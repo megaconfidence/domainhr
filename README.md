@@ -34,17 +34,7 @@ You don't need any data of your own: click one of the suggested domains, such as
 
 ## How it works
 
-```mermaid
-flowchart LR
-    you(["You: a domain, then your voice"]) --> app["React app"]
-    app <-->|WebSocket| agent["DomainVoiceAgent<br/>Durable Object"]
-    agent -- "landing page" --> jina["Jina Reader"]
-    agent -- "page + web search" --> brief["Mistral Large<br/>company brief"]
-    agent -- "mic audio" --> stt["Voxtral<br/>realtime transcription"]
-    stt --> chat["Mistral Large<br/>answer + web search"]
-    chat --> tts["Voxtral TTS"]
-    tts -- "spoken reply" --> app
-```
+<img src="docs/architecture.png" alt="Architecture of a voice turn: you speak to the browser, which streams audio chunks to the backend; the backend sends them to Voxtral STT, the transcript goes to Mistral Large (which can call web search), the reply text goes to Voxtral TTS, and the speech audio flows back through the backend and browser to you" width="100%">
 
 1. You type a domain. The page opens a WebSocket to a `DomainVoiceAgent`, a Durable Object built with the [Agents SDK](https://developers.cloudflare.com/agents/) and `@cloudflare/voice`. Each browser tab gets its own agent.
 2. The agent fetches the landing page as markdown through [Jina Reader](https://jina.ai/reader/), then asks Mistral Large (`mistral-large-4`) to write a company brief using Mistral's built-in web search. Each search and source streams to the page as it runs. This usually takes 35 to 55 seconds.
