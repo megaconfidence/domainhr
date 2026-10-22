@@ -5,7 +5,7 @@ import { useAssistantAudible } from './playback';
 
 const REPO_URL = 'https://github.com/megaconfidence/domainhr';
 
-const SUGGESTIONS = ['mistral.ai', 'cloudflare.com', 'huggingface.co'];
+const SUGGESTIONS = ['mistral.ai', 'example.com', 'huggingface.co'];
 
 const LOADING_QUIPS = [
 	'Skipping the cookie banner…',
