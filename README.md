@@ -6,6 +6,8 @@
 
 A demo of [Voxtral](https://docs.mistral.ai/capabilities/audio/) and [Mistral Large](https://docs.mistral.ai/getting-started/models/) running on [Cloudflare Workers](https://developers.cloudflare.com/workers/) with the [Agents SDK](https://developers.cloudflare.com/agents/).
 
+**[Try the live demo →](https://domainhr.mistraldemo.workers.dev)**
+
 <img src="docs/demo.gif" alt="Typing mistral.ai on the landing page, Domi the pixel cat researching the site with a live step tracker, then greeting you out loud on the voice screen" width="720">
 
 </div>
