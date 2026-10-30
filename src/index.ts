@@ -1,6 +1,7 @@
 import { withVoice, type VoiceTurnContext } from '@cloudflare/voice';
 import { Agent, routeAgentRequest, type Connection, type WSMessage } from 'agents';
 import { debugLog, textPreview } from './debug';
+import { BlockedSiteError, blockedByFamilyDns, blockedByName, classifyLandingPage } from './content-filter';
 import { jinaReaderUrl, normalizeDomain, speechContextFor } from './domain';
 import {
 	createMistralClient,
@@ -231,15 +232,29 @@ export class DomainVoiceAgent extends VoiceAgent<AppEnv, DomainState> {
 			});
 			this.broadcastMessage({ type: 'research_status', stage: 'reading', message: `Reading ${target.domain}` });
 
+			const blockedName = blockedByName(target.domain);
+			if (blockedName) throw new BlockedSiteError(blockedName, 'name');
+			const blockedDns = await blockedByFamilyDns(target.domain);
+			if (blockedDns) throw new BlockedSiteError(blockedDns, 'dns');
+			if (generation !== this.researchGeneration) return;
+
 			const pageContent = await this.readLandingPage(target.url);
 			if (generation !== this.researchGeneration) return;
 			debugLog('research', 'landing_page_ready', {
 				durationMs: Date.now() - startedAt,
 				characters: pageContent.length,
 			});
-			this.broadcastMessage({ type: 'research_status', stage: 'searching', message: 'Finding docs, context, and recent news' });
 
 			const client = createMistralClient(this.env.MISTRAL_API_KEY);
+			const blockedContent = await classifyLandingPage(client, target.domain, pageContent).catch((error: unknown) => {
+				if (isObject(error) && error.statusCode === 429) throw error;
+				debugLog('filter', 'classifier_failed', { message: error instanceof Error ? error.message : String(error) });
+				throw new Error("I couldn't check that site right now. Please try again in a moment.");
+			});
+			if (blockedContent) throw new BlockedSiteError(blockedContent, 'content');
+			if (generation !== this.researchGeneration) return;
+
+			this.broadcastMessage({ type: 'research_status', stage: 'searching', message: 'Finding docs, context, and recent news' });
 			const events = await client.beta.conversations.startStream({
 				model: this.env.MISTRAL_MODEL,
 				tools: [{ type: 'web_search_premium' }],
@@ -293,6 +308,9 @@ export class DomainVoiceAgent extends VoiceAgent<AppEnv, DomainState> {
 					: error instanceof Error
 						? error.message
 						: 'Research failed. Please try another domain.';
+			if (error instanceof BlockedSiteError) {
+				debugLog('filter', 'blocked', { category: error.category, reason: error.reason });
+			}
 			debugLog('research', 'failed', { durationMs: Date.now() - startedAt, message });
 			this.setState({ ...this.state, status: 'error', error: message });
 			this.broadcastMessage({ type: 'tool_reset' });
