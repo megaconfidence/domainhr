@@ -39,7 +39,7 @@ You don't need any data of your own: click one of the suggested domains, such as
 <img src="docs/architecture.png" alt="Architecture of a voice turn: you speak to the browser, which streams audio chunks to the backend; the backend sends them to Voxtral STT, the transcript goes to Mistral Large (which can call web search), the reply text goes to Voxtral TTS, and the speech audio flows back through the backend and browser to you" width="100%">
 
 1. You type a domain. The page opens a WebSocket to a `DomainVoiceAgent`, a Durable Object built with the [Agents SDK](https://developers.cloudflare.com/agents/) and `@cloudflare/voice`. Each browser tab gets its own agent.
-2. The agent fetches the landing page as markdown through [Jina Reader](https://jina.ai/reader/), then asks Mistral Large (`mistral-large-4`) to write a company brief using Mistral's built-in web search. Each search and source streams to the page as it runs. This usually takes 35 to 55 seconds.
+2. The agent fetches the landing page as markdown through [Jina Reader](https://jina.ai/reader/), then asks Mistral Large (`mistral-large-latest`) to write a company brief using Mistral's built-in web search. Each search and source streams to the page as it runs. This usually takes 35 to 55 seconds.
 3. When you speak, your mic audio streams to Voxtral realtime transcription (`voxtral-mini-transcribe-realtime-3`). After about 1.2 seconds of silence, the transcript goes to Mistral Large, which answers from the brief and can search again.
 4. Voxtral TTS (`voxtral-mini-tts-3`) turns the answer into speech and streams it back. Domi usually starts talking a few seconds after you stop.
 
@@ -81,7 +81,7 @@ Open <http://localhost:5173>, click **mistral.ai**, then **Let's go**, and allow
 
 | What | Where | Default |
 | --- | --- | --- |
-| Model for research and answers | `MISTRAL_MODEL` in `wrangler.jsonc` | `mistral-large-4` |
+| Model for research and answers | `MISTRAL_MODEL` in `wrangler.jsonc` | `mistral-large-latest` |
 | Text-to-speech model | `MISTRAL_TTS_MODEL` in `wrangler.jsonc` | `voxtral-mini-tts-3` |
 | Domi's voice | `MISTRAL_TTS_VOICE_ID` in `.env` | `gb_jane_neutral` |
 | Jina Reader key, for higher rate limits | `JINA_API_KEY` in `.env` | none (works without) |

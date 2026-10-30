@@ -175,7 +175,7 @@ export class DomainVoiceAgent extends VoiceAgent<AppEnv, DomainState> {
 			let firstChunkLogged = false;
 			try {
 				const inputs = buildTurnInput(transcript);
-				const completionArgs = { maxTokens: 500, reasoningEffort: 'none' as const };
+				const completionArgs = { maxTokens: 500 };
 				const events = voiceConversationId
 					? await client.beta.conversations.appendStream(
 							{ conversationId: voiceConversationId, conversationAppendStreamRequest: { inputs, completionArgs } },
@@ -246,7 +246,7 @@ export class DomainVoiceAgent extends VoiceAgent<AppEnv, DomainState> {
 				instructions: RESEARCH_INSTRUCTIONS,
 				inputs: buildResearchPrompt(target.domain, target.url, pageContent),
 				store: true,
-				completionArgs: { temperature: 0.2, maxTokens: 800, reasoningEffort: 'none' },
+				completionArgs: { temperature: 0.2, maxTokens: 800 },
 			});
 			let conversationId = '';
 			let discoveredSources: SourceReference[] = [];
