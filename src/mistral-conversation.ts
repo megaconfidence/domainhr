@@ -20,6 +20,12 @@ export type ConversationMetadata = {
 	tool?: ToolActivity;
 };
 
+export type FunctionCall = {
+	toolCallId: string;
+	name: string;
+	arguments: string;
+};
+
 export type ConversationResult = {
 	conversationId: string;
 	text: string;
@@ -58,11 +64,12 @@ export function readConversationResponse(response: ConversationResponse): Conver
 export async function* readConversationStream(
 	events: AsyncIterable<ConversationEvents>,
 	onMetadata: (metadata: ConversationMetadata) => void,
-	options: { announceSearch?: boolean } = {},
+	options: { announceSearch?: boolean; onFunctionCalls?: (calls: FunctionCall[]) => void } = {},
 ): AsyncGenerator<string> {
 	const sources: SourceReference[] = [];
 	const searchSources: SourceReference[] = [];
 	const searchResults = new Map<string, SourceReference>();
+	const functionCalls = new Map<string, FunctionCall>();
 	let responseText = '';
 	let searchAnnounced = false;
 
@@ -70,6 +77,14 @@ export async function* readConversationStream(
 		const data = event.data;
 		if (data.type === 'conversation.response.started') {
 			onMetadata({ conversationId: data.conversationId });
+			continue;
+		}
+
+		if (data.type === 'function.call.delta') {
+			// Arguments arrive in pieces, keyed by the call id.
+			const call = functionCalls.get(data.toolCallId) ?? { toolCallId: data.toolCallId, name: data.name, arguments: '' };
+			call.arguments += data.arguments ?? '';
+			functionCalls.set(data.toolCallId, call);
 			continue;
 		}
 
@@ -118,6 +133,7 @@ export async function* readConversationStream(
 
 	const cited = citedSources(responseText, searchResults);
 	if (cited.length) onMetadata({ sources: dedupeSources([...cited, ...sources, ...searchSources]) });
+	if (functionCalls.size) options.onFunctionCalls?.([...functionCalls.values()]);
 }
 
 export function dedupeSources(sources: SourceReference[]): SourceReference[] {

@@ -7,11 +7,11 @@ import {
 	createMistralClient,
 	dedupeSources,
 	friendlyMistralError,
-	readConversationStream,
 	type ConversationMetadata,
 	type SourceReference,
 } from './mistral-conversation';
 import { MistralRealtimeSTT, MistralTTS, TTS_SAMPLE_RATE } from './mistral-voice';
+import { SEARCH_TOOL, streamWithSearch } from './web-search';
 
 type AppEnv = Env & {
 	MISTRAL_API_KEY?: string;
@@ -176,19 +176,20 @@ export class DomainVoiceAgent extends VoiceAgent<AppEnv, DomainState> {
 			let firstChunkLogged = false;
 			try {
 				const inputs = buildTurnInput(transcript);
-				const completionArgs = { maxTokens: 500 };
+				const completionArgs = { maxTokens: 1_200 };
 				const events = voiceConversationId
 					? await client.beta.conversations.appendStream(
 							{ conversationId: voiceConversationId, conversationAppendStreamRequest: { inputs, completionArgs } },
 							{ signal: context.signal },
 						)
 					: await client.beta.conversations.startStream(
-							{ model, tools: [{ type: 'web_search_premium' }], instructions, inputs, store: true, completionArgs },
+							{ model, tools: [SEARCH_TOOL], instructions, inputs, store: true, completionArgs },
 							{ signal: context.signal },
 						);
 
 				const onMetadata = (metadata: ConversationMetadata) => agent.handleTurnMetadata(metadata, researchConversationId);
-				for await (const chunk of readConversationStream(events, onMetadata, { announceSearch: true })) {
+				const searchOptions = { maxRounds: 1, maxSearchesPerRound: 1, announceSearch: true, signal: context.signal };
+				for await (const chunk of streamWithSearch(client, events, onMetadata, searchOptions)) {
 					outputCharacters += chunk.length;
 					if (!firstChunkLogged) {
 						firstChunkLogged = true;
@@ -255,23 +256,32 @@ export class DomainVoiceAgent extends VoiceAgent<AppEnv, DomainState> {
 			if (generation !== this.researchGeneration) return;
 
 			this.broadcastMessage({ type: 'research_status', stage: 'searching', message: 'Finding docs, context, and recent news' });
-			const events = await client.beta.conversations.startStream({
-				model: this.env.MISTRAL_MODEL,
-				tools: [{ type: 'web_search_premium' }],
-				instructions: RESEARCH_INSTRUCTIONS,
-				inputs: buildResearchPrompt(target.domain, target.url, pageContent),
-				store: true,
-				completionArgs: { temperature: 0.2, maxTokens: 800 },
-			});
+			const cancelled = new AbortController();
+			const events = await client.beta.conversations.startStream(
+				{
+					model: this.env.MISTRAL_MODEL,
+					tools: [SEARCH_TOOL],
+					instructions: RESEARCH_INSTRUCTIONS,
+					inputs: buildResearchPrompt(target.domain, target.url, pageContent),
+					store: true,
+					completionArgs: { temperature: 0.2, maxTokens: 4_000 },
+				},
+				{ signal: cancelled.signal },
+			);
 			let conversationId = '';
 			let discoveredSources: SourceReference[] = [];
 			let summary = '';
-			for await (const chunk of readConversationStream(events, (metadata) => {
-				if (generation !== this.researchGeneration) return;
+			const onMetadata = (metadata: ConversationMetadata) => {
+				if (generation !== this.researchGeneration) {
+					cancelled.abort();
+					return;
+				}
 				this.handleConversationMetadata(metadata);
 				if (metadata.conversationId) conversationId = metadata.conversationId;
 				if (metadata.sources) discoveredSources = metadata.sources;
-			})) {
+			};
+			const searchOptions = { maxRounds: 4, maxSearchesPerRound: 6, signal: cancelled.signal };
+			for await (const chunk of streamWithSearch(client, events, onMetadata, searchOptions)) {
 				summary += chunk;
 			}
 			if (generation !== this.researchGeneration) return;
@@ -382,7 +392,7 @@ If sources conflict or evidence is thin, say so. Never invent details.`;
 
 const RESEARCH_INSTRUCTIONS = `${BASE_INSTRUCTIONS}
 
-Use web_search_premium to find first-party documentation, product pages, company blogs, and reputable recent news. Prefer first-party sources for product capabilities and reputable publications for external claims. Write a compact brief: what the company sells, who it serves, the problem it solves, what makes it distinct, its main competitors, and notable recent news.`;
+Use search_web to find first-party documentation, product pages, company blogs, and reputable recent news. Prefer first-party sources for product capabilities and reputable publications for external claims. Write a compact brief: what the company sells, who it serves, the problem it solves, what makes it distinct, its main competitors, and notable recent news.`;
 
 function buildVoiceInstructions(domain: string, brief: string): string {
 	return `${BASE_INSTRUCTIONS}
